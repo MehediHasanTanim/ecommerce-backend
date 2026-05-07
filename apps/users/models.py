@@ -93,6 +93,13 @@ class Address(models.Model):
 
     class Meta:
         verbose_name_plural = "Addresses"
+        constraints = [
+            models.UniqueConstraint(
+                fields=["user", "type"],
+                condition=Q(is_default=True),
+                name="unique_default_address_per_type"
+            )
+        ]
 
     def __str__(self):
         return f"{self.name} - {self.city}"
@@ -105,7 +112,7 @@ class UserVerificationToken(models.Model):
     )
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     user = models.ForeignKey(User, on_delete=models.CASCADE, related_name='verification_tokens')
-    token_hash = models.CharField(max_length=255)
+    token_hash = models.CharField(max_length=255, db_index=True)
     purpose = models.CharField(max_length=50, choices=PURPOSE_CHOICES)
     is_used = models.BooleanField(default=False)
     expires_at = models.DateTimeField()

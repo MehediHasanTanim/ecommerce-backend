@@ -66,7 +66,7 @@ class AddressViewSet(viewsets.ModelViewSet):
         return AddressSerializer
 
     def perform_create(self, serializer):
-        create_address(self.request.user, serializer.validated_data)
+        self.instance = create_address(self.request.user, serializer.validated_data)
 
     @action(detail=True, methods=['patch'], url_path='default')
     def set_default(self, request, pk=None):

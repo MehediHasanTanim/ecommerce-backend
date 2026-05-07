@@ -6,6 +6,7 @@ from apps.users.services import create_audit_log, create_user_account
 from apps.users.models import UserVerificationToken
 import hashlib
 import uuid
+import secrets
 from celery import shared_task
 
 User = get_user_model()
@@ -45,7 +46,7 @@ def authenticate_user(username, password):
 def request_password_reset(username):
     user = User.objects.filter(email=username).first() or User.objects.filter(phone=username).first()
     if user:
-        token = uuid.uuid4()
+        token = secrets.token_urlsafe(32)
         token_hash = hashlib.sha256(str(token).encode()).hexdigest()
         UserVerificationToken.objects.create(
             user=user,

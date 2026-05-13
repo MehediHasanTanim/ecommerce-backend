@@ -1,6 +1,8 @@
 import factory
 from factory.django import DjangoModelFactory
-from apps.users.models import User, Address
+from apps.users.models import User, Address, UserVerificationToken
+from django.utils import timezone
+from datetime import timedelta
 
 class UserFactory(DjangoModelFactory):
     class Meta:
@@ -37,7 +39,7 @@ class AddressFactory(DjangoModelFactory):
         model = Address
 
     user = factory.SubFactory(UserFactory)
-    name = factory.Faker('name')
+    name = factory.Faker('word')
     phone = factory.Sequence(lambda n: f'0171{n:08d}')
     country = factory.Faker('country')
     city = factory.Faker('city')
@@ -46,3 +48,13 @@ class AddressFactory(DjangoModelFactory):
     address_line = factory.Faker('address')
     type = 'shipping'
     is_default = False
+
+class UserVerificationTokenFactory(DjangoModelFactory):
+    class Meta:
+        model = UserVerificationToken
+
+    user = factory.SubFactory(UserFactory)
+    token_hash = factory.Faker('sha256')
+    purpose = 'password_reset'
+    expires_at = factory.LazyFunction(lambda: timezone.now() + timedelta(hours=24))
+    is_used = False

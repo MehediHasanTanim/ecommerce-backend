@@ -25,13 +25,13 @@ class TestProfileAndAddress:
         user = create_user(email="me@example.com")
         # create_user sets password to 'testpass123' by default
         api_client.force_authenticate(user=user)
-        url = reverse('me_password')
+        url = reverse('change_password')
         data = {
             "old_password": "testpass123",
             "new_password": "NewStrongPassword123!",
             "confirm_password": "NewStrongPassword123!"
         }
-        response = api_client.put(url, data)
+        response = api_client.post(url, data)
         assert response.status_code == 200
         user.refresh_from_db()
         assert user.check_password("NewStrongPassword123!")

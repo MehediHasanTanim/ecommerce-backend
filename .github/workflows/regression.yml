@@ -1,0 +1,134 @@
+name: Backend Regression Automation
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  workflow_dispatch:        # allow manual trigger from GitHub UI
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # JOB 1: Unit regression tests (no Docker, fast)
+  # Covers: REGR-HEALTH-001 · REGR-SWAGGER-001 · REGR-SEC-001
+  # ---------------------------------------------------------------------------
+  unit-regression:
+    name: "Unit Regression (Health · Swagger · Security)"
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: user
+          POSTGRES_PASSWORD: password
+          POSTGRES_DB: ecommerce_test_db
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.12
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        working-directory: ecommerce_backend
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements/dev.txt
+
+      - name: Lint with flake8
+        working-directory: ecommerce_backend
+        run: |
+          flake8 . --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 . --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+
+      # REGR-HEALTH-001 + REGR-SWAGGER-001 + REGR-SEC-001
+      - name: "REGR-HEALTH-001 | REGR-SWAGGER-001 | REGR-SEC-001 – Unit regression tests"
+        working-directory: ecommerce_backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.dev
+          SECRET_KEY: ci-secret-key
+          DEBUG: "1"
+          DB_NAME: ecommerce_test_db
+          DB_USER: user
+          DB_PASSWORD: password
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          pytest tests/regression/test_health.py \
+                 tests/regression/test_swagger.py \
+                 tests/regression/test_security.py \
+                 -v --tb=short --no-header \
+                 --cov=apps --cov-report=term-missing \
+                 -m "not integration"
+
+  # ---------------------------------------------------------------------------
+  # JOB 2: Docker integration regression
+  # Covers: REGR-DOCKER-001 (PostgreSQL + Redis) · REGR-CELERY-001
+  # ---------------------------------------------------------------------------
+  docker-regression:
+    name: "Docker Regression (Stack · PostgreSQL · Redis · Celery)"
+    runs-on: ubuntu-latest
+    needs: unit-regression         # only run if unit tests pass first
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # Build the images first (fail fast on build errors)
+      - name: Build docker-compose images
+        working-directory: ecommerce_backend
+        run: docker compose build
+
+      # REGR-DOCKER-001 + REGR-CELERY-001 via the pytest integration suite
+      - name: "REGR-DOCKER-001 | REGR-CELERY-001 – Docker integration tests"
+        working-directory: ecommerce_backend
+        env:
+          SKIP_DOCKER_UP: "0"           # let the fixture manage docker-compose
+          REGRESSION_BASE_URL: "http://localhost:8015"
+          DB_USER: postgres
+        run: |
+          pip install pytest pytest-django requests
+          pip install -r requirements/dev.txt
+          pytest tests/regression/test_docker_stack.py \
+                 -v --tb=short --no-header \
+                 -m integration \
+                 --no-cov          # coverage not meaningful for integration tests
+
+      # Alternatively run the bash smoke script (covers the same ground differently)
+      - name: "Bash smoke check – run_docker_regression.sh"
+        working-directory: ecommerce_backend
+        if: success()
+        env:
+          SKIP_DOCKER_UP: "1"           # stack already up from the previous step
+          REGRESSION_BASE_URL: "http://localhost:8015"
+          DB_USER: postgres
+        run: |
+          chmod +x scripts/regression/run_docker_regression.sh
+          scripts/regression/run_docker_regression.sh --keep-up
+
+      # Always collect container logs for debugging
+      - name: Collect docker-compose logs on failure
+        if: failure()
+        working-directory: ecommerce_backend
+        run: docker compose logs --tail=100
+
+      # Always tear down
+      - name: Tear down docker-compose stack
+        if: always()
+        working-directory: ecommerce_backend
+        run: docker compose down --remove-orphans

@@ -41,7 +41,7 @@ class MePasswordView(views.APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     @extend_schema(request=ChangePasswordSerializer)
-    def put(self, request):
+    def post(self, request):
         serializer = ChangePasswordSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         success = change_password(

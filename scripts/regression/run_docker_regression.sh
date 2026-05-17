@@ -132,9 +132,9 @@ fi
 # ---------------------------------------------------------------------------
 echo ""
 info "=== REGR-SWAGGER-001: Swagger docs load successfully ==="
-assert_http_status "GET /api/schema/"        "200" "${BASE_URL}/api/schema/"
-assert_http_status "GET /api/docs/swagger/"  "200" "${BASE_URL}/api/docs/swagger/"
-assert_http_status "GET /api/docs/redoc/"    "200" "${BASE_URL}/api/docs/redoc/"
+assert_http_status "GET /api/v1/schema/"        "200" "${BASE_URL}/api/v1/schema/"
+assert_http_status "GET /api/v1/docs/swagger/"  "200" "${BASE_URL}/api/v1/docs/swagger/"
+assert_http_status "GET /api/v1/docs/redoc/"    "200" "${BASE_URL}/api/v1/docs/redoc/"
 
 # ---------------------------------------------------------------------------
 # REGR-SEC-001 – Anonymous request is rejected from protected API

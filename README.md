@@ -23,9 +23,9 @@ This is a production-grade e-commerce backend built with Django, Django REST Fra
    ```
 
 ## API Documentation
-- **Swagger UI**: [http://localhost:8015/api/docs/swagger/](http://localhost:8015/api/docs/swagger/)
-- **ReDoc**: [http://localhost:8015/api/docs/redoc/](http://localhost:8015/api/docs/redoc/)
-- **Schema**: [http://localhost:8015/api/schema/](http://localhost:8015/api/schema/)
+- **Swagger UI**: [http://localhost:8015/api/v1/docs/swagger/](http://localhost:8015/api/v1/docs/swagger/)
+- **ReDoc**: [http://localhost:8015/api/v1/docs/redoc/](http://localhost:8015/api/v1/docs/redoc/)
+- **Schema**: [http://localhost:8015/api/v1/schema/](http://localhost:8015/api/v1/schema/)
 
 ## Testing
 Run the tests with coverage:

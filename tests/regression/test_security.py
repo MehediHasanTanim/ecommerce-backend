@@ -23,12 +23,12 @@ import pytest
 
 PROTECTED_ENDPOINTS = [
     # Profile
-    ("GET",   "/api/v1/me/"),
-    ("PATCH", "/api/v1/me/"),
-    ("PUT",   "/api/v1/me/password/"),
+    ("GET",   "/api/v1/users/me/"),
+    ("PATCH", "/api/v1/users/me/"),
+    ("PUT",   "/api/v1/users/me/password/"),
     # Addresses
-    ("GET",   "/api/v1/addresses/"),
-    ("POST",  "/api/v1/addresses/"),
+    ("GET",   "/api/v1/users/addresses/"),
+    ("POST",  "/api/v1/users/addresses/"),
 ]
 
 INVALID_JWT = (
@@ -78,38 +78,38 @@ class TestAnonymousRejectedFromProtectedEndpoints:
 @pytest.mark.django_db
 class TestMeEndpointAnonymousRejection:
     """
-    USER-ME-002 – Unauthenticated user cannot access /api/v1/me/.
+    USER-ME-002 – Unauthenticated user cannot access /api/v1/users/me/.
     Mirrors the exact scenario defined in the regression test doc.
     """
 
     def test_get_me_without_auth_returns_401(self, api_client):
-        """GET /api/v1/me/ without token → 401."""
+        """GET /api/v1/users/me/ without token → 401."""
         api_client.credentials()
-        response = api_client.get("/api/v1/me/")
+        response = api_client.get("/api/v1/users/me/")
         assert response.status_code == 401, (
-            f"Expected 401 for unauthenticated GET /api/v1/me/, "
+            f"Expected 401 for unauthenticated GET /api/v1/users/me/, "
             f"got {response.status_code}."
         )
 
     def test_patch_me_without_auth_returns_401(self, api_client):
-        """PATCH /api/v1/me/ without token → 401."""
+        """PATCH /api/v1/users/me/ without token → 401."""
         api_client.credentials()
-        response = api_client.patch("/api/v1/me/", {"first_name": "Eve"}, format="json")
+        response = api_client.patch("/api/v1/users/me/", {"first_name": "Eve"}, format="json")
         assert response.status_code == 401, (
-            f"Expected 401 for unauthenticated PATCH /api/v1/me/, "
+            f"Expected 401 for unauthenticated PATCH /api/v1/users/me/, "
             f"got {response.status_code}."
         )
 
     def test_change_password_without_auth_returns_401(self, api_client):
-        """PUT /api/v1/me/password/ without token → 401."""
+        """PUT /api/v1/users/me/password/ without token → 401."""
         api_client.credentials()
         response = api_client.put(
-            "/api/v1/me/password/",
+            "/api/v1/users/me/password/",
             {"old_password": "x", "new_password": "y", "confirm_password": "y"},
             format="json",
         )
         assert response.status_code == 401, (
-            f"Expected 401 for unauthenticated PUT /api/v1/me/password/, "
+            f"Expected 401 for unauthenticated PUT /api/v1/users/me/password/, "
             f"got {response.status_code}."
         )
 

@@ -129,7 +129,7 @@ class TestDockerStack:
     def test_swagger_docs_reachable_on_live_stack(self, docker_compose_up):
         """Swagger UI must be accessible on the live docker stack."""
         base_url = docker_compose_up
-        response = requests.get(f"{base_url}/api/docs/swagger/", timeout=15)
+        response = requests.get(f"{base_url}/api/v1/docs/swagger/", timeout=15)
         assert response.status_code == 200, (
             f"Swagger UI returned {response.status_code} on the live stack."
         )

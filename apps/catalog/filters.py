@@ -14,7 +14,7 @@ class ProductFilter(django_filters.FilterSet):
         in_stock    – true/false, whether any variant has stock > 0
         is_featured – true/false
         attribute    – variant attribute filter in key:value form, e.g. color:Red
-        ordering    – newest | price_asc | price_desc | name_asc | name_desc
+        ordering    – newest | oldest | price_asc | price_desc | name_asc | name_desc
     """
 
     category = django_filters.CharFilter(
@@ -98,6 +98,7 @@ class ProductFilter(django_filters.FilterSet):
 
 SORT_MAP = {
     'newest':     '-created_at',
+    'oldest':     'created_at',
     'price_asc':  'base_price',
     'price_desc': '-base_price',
     'name_asc':   'name',

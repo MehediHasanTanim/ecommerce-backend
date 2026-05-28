@@ -77,6 +77,24 @@ jobs:
                  --cov=apps --cov-report=term-missing \
                  -m "not integration"
 
+      - name: "REGR-CATALOG-001 – Catalog and search API regression tests"
+        working-directory: ecommerce_backend
+        env:
+          DJANGO_SETTINGS_MODULE: config.settings.dev
+          SECRET_KEY: ci-secret-key
+          DEBUG: "1"
+          DB_NAME: ecommerce_test_db
+          DB_USER: user
+          DB_PASSWORD: password
+          DB_HOST: localhost
+          DB_PORT: "5432"
+          REDIS_URL: redis://localhost:6379/0
+        run: |
+          pytest apps/catalog/tests/regression \
+                 -v --tb=short --no-header \
+                 --cov=apps.catalog --cov-report=term-missing \
+                 -m "not integration"
+
   # ---------------------------------------------------------------------------
   # JOB 2: Docker integration regression
   # Covers: REGR-DOCKER-001 (PostgreSQL + Redis) · REGR-CELERY-001

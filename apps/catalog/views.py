@@ -1,11 +1,12 @@
 import logging
 from rest_framework import status, generics, views
+from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
-from rest_framework.permissions import AllowAny, IsAuthenticated
+from rest_framework.permissions import AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser
 from django_filters.rest_framework import DjangoFilterBackend
 from drf_spectacular.utils import (
-    extend_schema, extend_schema_view, OpenApiParameter, OpenApiTypes, OpenApiExample
+    extend_schema, OpenApiParameter, OpenApiTypes
 )
 
 from .models import Category, Brand, Product, ProductImage
@@ -16,8 +17,8 @@ from .serializers import (
     ProductImageSerializer, ProductImageUploadSerializer,
 )
 from .services import CategoryService, BrandService, ProductService, ProductImageService, SearchService
-from .filters import ProductFilter, apply_sorting
-from .permissions import IsAdminOrStaffUser, ReadOnly
+from .filters import ProductFilter, SORT_MAP, apply_sorting
+from .permissions import IsAdminOrStaffUser
 
 logger = logging.getLogger(__name__)
 
@@ -107,7 +108,7 @@ class BrandDetailView(generics.RetrieveAPIView):
         OpenApiParameter('attribute', OpenApiTypes.STR, description='Variant attribute filter, e.g. color:Red'),
         OpenApiParameter(
             'sort', OpenApiTypes.STR,
-            description='Sort order: newest | price_asc | price_desc | name_asc | name_desc',
+            description='Sort order: newest | oldest | price_asc | price_desc | name_asc | name_desc',
         ),
     ],
 )
@@ -130,6 +131,8 @@ class ProductListView(generics.ListAPIView):
             .prefetch_related('images', 'variants')
         )
         sort_param = self.request.query_params.get('sort', 'newest')
+        if sort_param not in SORT_MAP:
+            raise ValidationError({'sort': f'Unsupported sort value "{sort_param}".'})
         return apply_sorting(qs, sort_param)
 
 

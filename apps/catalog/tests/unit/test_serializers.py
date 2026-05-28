@@ -29,6 +29,12 @@ class TestCategoryWriteSerializer:
         assert not serializer.is_valid()
         assert 'slug' in serializer.errors
 
+    def test_category_cannot_be_its_own_parent(self):
+        category = CategoryFactory()
+        serializer = CategoryWriteSerializer(category, data={'parent': category.id}, partial=True)
+        assert not serializer.is_valid()
+        assert 'parent' in serializer.errors
+
 
 @pytest.mark.django_db
 class TestBrandWriteSerializer:
@@ -60,6 +66,36 @@ class TestProductWriteSerializer:
         serializer = ProductWriteSerializer(data=data)
         assert serializer.is_valid(), serializer.errors
 
+    def test_valid_data_with_variants(self, category, brand):
+        data = {
+            'name': 'MacBook Pro',
+            'sku': 'MBP-2024',
+            'category': category.id,
+            'brand': brand.id,
+            'base_price': '1999.99',
+            'variants': [
+                {
+                    'sku': 'MBP-2024-16',
+                    'variant_name': '16GB RAM',
+                    'attributes': {'memory': '16GB'},
+                    'price': '2099.99',
+                    'sale_price': '1999.99',
+                    'stock_quantity': 5,
+                    'is_active': True,
+                }
+            ],
+        }
+
+        serializer = ProductWriteSerializer(data=data)
+
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data['variants'][0]['attributes'] == {'memory': '16GB'}
+
+    def test_required_fields_are_enforced(self):
+        serializer = ProductWriteSerializer(data={})
+        assert not serializer.is_valid()
+        assert {'name', 'sku', 'base_price'}.issubset(serializer.errors.keys())
+
     def test_sale_price_cannot_be_greater_than_base_price(self):
         data = {
             'name': 'MacBook Pro',
@@ -71,6 +107,22 @@ class TestProductWriteSerializer:
         serializer = ProductWriteSerializer(data=data)
         assert not serializer.is_valid()
         assert 'sale_price' in serializer.errors
+
+    def test_base_price_cannot_be_zero(self):
+        serializer = ProductWriteSerializer(data={'name': 'Mac', 'sku': 'MBP-1', 'base_price': '0.00'})
+        assert not serializer.is_valid()
+        assert 'base_price' in serializer.errors
+
+    def test_sale_price_cannot_be_zero(self):
+        data = {'name': 'Mac', 'sku': 'MBP-1', 'base_price': '100.00', 'sale_price': '0.00'}
+        serializer = ProductWriteSerializer(data=data)
+        assert not serializer.is_valid()
+        assert 'sale_price' in serializer.errors
+
+    def test_nullable_category_and_brand_are_accepted(self):
+        data = {'name': 'Standalone Product', 'sku': 'STANDALONE-1', 'base_price': '10.00'}
+        serializer = ProductWriteSerializer(data=data)
+        assert serializer.is_valid(), serializer.errors
 
     def test_slug_uniqueness(self):
         ProductFactory(slug='macbook-pro')
@@ -99,6 +151,32 @@ class TestProductVariantWriteSerializer:
         serializer = ProductVariantWriteSerializer(data=data)
         assert not serializer.is_valid()
         assert 'stock_quantity' in serializer.errors
+
+    def test_price_cannot_be_negative_or_zero(self):
+        serializer = ProductVariantWriteSerializer(data={
+            'sku': 'VAR-002',
+            'variant_name': 'Small',
+            'price': '0.00',
+            'stock_quantity': 10,
+        })
+        assert not serializer.is_valid()
+        assert 'price' in serializer.errors
+
+    def test_sale_price_must_be_less_than_price(self):
+        serializer = ProductVariantWriteSerializer(data={
+            'sku': 'VAR-003',
+            'variant_name': 'Small',
+            'price': '10.00',
+            'sale_price': '10.00',
+            'stock_quantity': 10,
+        })
+        assert not serializer.is_valid()
+        assert 'sale_price' in serializer.errors
+
+    def test_optional_defaults_are_valid(self):
+        serializer = ProductVariantWriteSerializer(data={'sku': 'VAR-004', 'variant_name': 'Default'})
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data['attributes'] == {}
 
     def test_sku_uniqueness(self):
         ProductVariantFactory(sku='VAR-001')
@@ -130,3 +208,17 @@ class TestProductImageUploadSerializer:
         serializer = ProductImageUploadSerializer(data={'image': bad_ext_file})
         assert not serializer.is_valid()
         assert 'image' in serializer.errors
+
+    def test_negative_display_order_is_rejected(self):
+        image = make_test_image()
+        serializer = ProductImageUploadSerializer(data={'image': image, 'display_order': -1})
+        assert not serializer.is_valid()
+        assert 'display_order' in serializer.errors
+
+    def test_optional_metadata_defaults_are_applied(self):
+        image = make_test_image()
+        serializer = ProductImageUploadSerializer(data={'image': image})
+        assert serializer.is_valid(), serializer.errors
+        assert serializer.validated_data['alt_text'] == ''
+        assert serializer.validated_data['is_primary'] is False
+        assert serializer.validated_data['display_order'] == 0

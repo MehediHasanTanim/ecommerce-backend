@@ -134,6 +134,18 @@ class Product(models.Model):
             models.Index(fields=['brand']),
         ]
 
+    def clean(self):
+        errors = {}
+        if self.base_price is not None and self.base_price <= 0:
+            errors['base_price'] = 'Base price must be greater than zero.'
+        if self.sale_price is not None:
+            if self.sale_price <= 0:
+                errors['sale_price'] = 'Sale price must be greater than zero.'
+            elif self.base_price is not None and self.sale_price >= self.base_price:
+                errors['sale_price'] = 'Sale price must be less than base price.'
+        if errors:
+            raise ValidationError(errors)
+
     def save(self, *args, **kwargs):
         if not self.slug:
             base_slug = slugify(self.name)
@@ -187,8 +199,18 @@ class ProductVariant(models.Model):
         ]
 
     def clean(self):
+        errors = {}
         if self.stock_quantity is not None and self.stock_quantity < 0:
-            raise ValidationError({'stock_quantity': 'Stock quantity cannot be negative.'})
+            errors['stock_quantity'] = 'Stock quantity cannot be negative.'
+        if self.price is not None and self.price <= 0:
+            errors['price'] = 'Variant price must be greater than zero.'
+        if self.sale_price is not None:
+            if self.sale_price <= 0:
+                errors['sale_price'] = 'Variant sale price must be greater than zero.'
+            elif self.price is not None and self.sale_price >= self.price:
+                errors['sale_price'] = 'Variant sale price must be less than variant price.'
+        if errors:
+            raise ValidationError(errors)
 
     def save(self, *args, **kwargs):
         self.full_clean()

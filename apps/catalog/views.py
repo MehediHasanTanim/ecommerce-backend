@@ -104,6 +104,7 @@ class BrandDetailView(generics.RetrieveAPIView):
         OpenApiParameter('price_max', OpenApiTypes.FLOAT, description='Maximum price'),
         OpenApiParameter('in_stock', OpenApiTypes.BOOL, description='Filter in-stock products'),
         OpenApiParameter('is_featured', OpenApiTypes.BOOL, description='Filter featured products'),
+        OpenApiParameter('attribute', OpenApiTypes.STR, description='Variant attribute filter, e.g. color:Red'),
         OpenApiParameter(
             'sort', OpenApiTypes.STR,
             description='Sort order: newest | price_asc | price_desc | name_asc | name_desc',

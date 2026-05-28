@@ -44,6 +44,11 @@ class CategoryWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("A category with this slug already exists.")
         return value
 
+    def validate_parent(self, value):
+        if self.instance and value and value.pk == self.instance.pk:
+            raise serializers.ValidationError("A category cannot be its own parent.")
+        return value
+
 
 # ---------------------------------------------------------------------------
 # Brand Serializers
@@ -108,7 +113,7 @@ class ProductImageSerializer(serializers.ModelSerializer):
 class ProductImageUploadSerializer(serializers.Serializer):
     """Validates image upload: file type, size, and metadata."""
     image = serializers.ImageField()
-    alt_text = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    alt_text = serializers.CharField(max_length=255, required=False, allow_blank=True, default='')
     is_primary = serializers.BooleanField(default=False)
     display_order = serializers.IntegerField(default=0, min_value=0)
     variant = serializers.PrimaryKeyRelatedField(
@@ -178,6 +183,16 @@ class ProductVariantWriteSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError("Stock quantity cannot be negative.")
         return value
 
+    def validate_price(self, value):
+        if value is not None and value <= 0:
+            raise serializers.ValidationError("Variant price must be greater than zero.")
+        return value
+
+    def validate_sale_price(self, value):
+        if value is not None and value <= 0:
+            raise serializers.ValidationError("Variant sale price must be greater than zero.")
+        return value
+
     def validate_sku(self, value):
         qs = ProductVariant.objects.filter(sku=value)
         if self.instance:
@@ -185,6 +200,15 @@ class ProductVariantWriteSerializer(serializers.ModelSerializer):
         if qs.exists():
             raise serializers.ValidationError("A variant with this SKU already exists.")
         return value
+
+    def validate(self, attrs):
+        price = attrs.get('price') or (self.instance.price if self.instance else None)
+        sale_price = attrs.get('sale_price')
+        if sale_price is not None and price is not None and sale_price >= price:
+            raise serializers.ValidationError(
+                {'sale_price': 'Variant sale price must be less than variant price.'}
+            )
+        return attrs
 
 
 # ---------------------------------------------------------------------------
@@ -330,6 +354,16 @@ class ProductWriteSerializer(serializers.ModelSerializer):
             qs = qs.exclude(pk=self.instance.pk)
         if qs.exists():
             raise serializers.ValidationError("A product with this SKU already exists.")
+        return value
+
+    def validate_base_price(self, value):
+        if value <= 0:
+            raise serializers.ValidationError("Base price must be greater than zero.")
+        return value
+
+    def validate_sale_price(self, value):
+        if value is not None and value <= 0:
+            raise serializers.ValidationError("Sale price must be greater than zero.")
         return value
 
     def validate(self, attrs):

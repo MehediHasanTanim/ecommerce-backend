@@ -19,9 +19,9 @@ class TestProductFilter:
         self.p3 = ProductFactory(category=self.cat1, base_price=Decimal('200.00'), is_featured=False)
         
         # p1 is in stock
-        ProductVariantFactory(product=self.p1, stock_quantity=10, is_active=True)
+        ProductVariantFactory(product=self.p1, stock_quantity=10, is_active=True, attributes={'color': 'Red', 'size': 'M'})
         # p2 is out of stock (stock = 0)
-        ProductVariantFactory(product=self.p2, stock_quantity=0, is_active=True)
+        ProductVariantFactory(product=self.p2, stock_quantity=0, is_active=True, attributes={'color': 'Blue', 'size': 'L'})
         # p3 has no variants, so out of stock by default definition
 
     def test_filter_by_category(self):
@@ -63,6 +63,29 @@ class TestProductFilter:
         assert qs.count() == 1
         assert self.p1 in qs
 
+    def test_multiple_filters_are_combined(self):
+        qs = ProductFilter({
+            'category': 'cat-1',
+            'brand': 'brand-1',
+            'price_min': '40',
+            'price_max': '60',
+            'in_stock': 'true',
+            'is_featured': 'true',
+        }, queryset=Product.objects.all()).qs
+        assert list(qs) == [self.p1]
+
+    def test_filter_by_variant_attribute(self):
+        qs = ProductFilter({'attribute': 'color:red'}, queryset=Product.objects.all()).qs
+        assert list(qs) == [self.p1]
+
+    def test_invalid_attribute_filter_returns_no_results(self):
+        qs = ProductFilter({'attribute': 'not-a-valid-format'}, queryset=Product.objects.all()).qs
+        assert qs.count() == 0
+
+    def test_invalid_price_filter_is_invalid_without_crashing(self):
+        product_filter = ProductFilter({'price_min': 'not-a-number'}, queryset=Product.objects.all())
+        assert product_filter.is_valid() is False
+
 
 @pytest.mark.django_db
 class TestSorting:
@@ -92,4 +115,12 @@ class TestSorting:
     def test_sort_invalid_falls_back_to_newest(self):
         qs = apply_sorting(Product.objects.all(), 'invalid_sort')
         # ordered by -created_at by default
+        assert list(qs) == [self.p_expensive, self.p_mid, self.p_cheap]
+
+    def test_sort_created_date_newest(self):
+        qs = apply_sorting(Product.objects.all(), 'newest')
+        assert list(qs) == [self.p_expensive, self.p_mid, self.p_cheap]
+
+    def test_unsupported_popularity_sort_falls_back_to_newest(self):
+        qs = apply_sorting(Product.objects.all(), 'popularity')
         assert list(qs) == [self.p_expensive, self.p_mid, self.p_cheap]

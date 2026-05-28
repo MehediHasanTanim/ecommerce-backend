@@ -1,6 +1,7 @@
 import pytest
 from decimal import Decimal
 from django.core.exceptions import ValidationError
+from django.db import IntegrityError
 from apps.catalog.models import Category, Brand, Product, ProductVariant, ProductImage
 from common.tests.factories import (
     CategoryFactory, BrandFactory, ProductFactory,
@@ -63,6 +64,17 @@ class TestBrandModel:
 @pytest.mark.django_db
 class TestProductModel:
 
+    def test_required_fields_are_validated_by_full_clean(self, category, brand):
+        # Arrange
+        product = Product(category=category, brand=brand)
+
+        # Act / Assert
+        with pytest.raises(ValidationError) as exc:
+            product.full_clean()
+        assert 'name' in exc.value.message_dict
+        assert 'sku' in exc.value.message_dict
+        assert 'base_price' in exc.value.message_dict
+
     def test_slug_auto_generated(self):
         product = ProductFactory(name='Wireless Headphones', slug='')
         assert product.slug == 'wireless-headphones'
@@ -74,8 +86,47 @@ class TestProductModel:
 
     def test_sku_uniqueness(self):
         ProductFactory(sku='SKU-001')
-        with pytest.raises(Exception):  # IntegrityError from DB
+        with pytest.raises(IntegrityError):
             ProductFactory(sku='SKU-001')
+
+    def test_slug_unique_constraint_is_enforced(self):
+        ProductFactory(slug='duplicate-product')
+        with pytest.raises(IntegrityError):
+            ProductFactory(slug='duplicate-product')
+
+    def test_base_price_must_be_positive(self):
+        product = ProductFactory.build(base_price=Decimal('0.00'))
+        with pytest.raises(ValidationError) as exc:
+            product.full_clean()
+        assert 'base_price' in exc.value.message_dict
+
+    def test_sale_price_must_be_positive(self):
+        product = ProductFactory.build(base_price=Decimal('100.00'), sale_price=Decimal('-1.00'))
+        with pytest.raises(ValidationError) as exc:
+            product.full_clean()
+        assert 'sale_price' in exc.value.message_dict
+
+    def test_sale_price_must_be_less_than_base_price(self):
+        product = ProductFactory.build(base_price=Decimal('100.00'), sale_price=Decimal('100.00'))
+        with pytest.raises(ValidationError) as exc:
+            product.full_clean()
+        assert 'sale_price' in exc.value.message_dict
+
+    def test_product_can_reference_nullable_category_and_brand(self):
+        product = ProductFactory(category=None, brand=None)
+        assert product.category is None
+        assert product.brand is None
+
+    def test_product_status_fields_are_boolean_values(self):
+        product = ProductFactory(is_active=False, is_featured=True)
+        assert product.is_active is False
+        assert product.is_featured is True
+
+    def test_soft_delete_is_not_enabled_for_products(self):
+        product = ProductFactory()
+        product_id = product.id
+        product.delete()
+        assert not Product.objects.filter(id=product_id).exists()
 
     def test_effective_price_returns_sale_price_when_set(self):
         product = ProductFactory(base_price=Decimal('100.00'), sale_price=Decimal('75.00'))
@@ -113,6 +164,24 @@ class TestProductVariantModel:
         with pytest.raises(ValidationError):
             variant.full_clean()
 
+    def test_variant_price_must_be_positive(self):
+        variant = ProductVariantFactory.build(price=Decimal('0.00'))
+        with pytest.raises(ValidationError) as exc:
+            variant.full_clean()
+        assert 'price' in exc.value.message_dict
+
+    def test_variant_sale_price_must_be_positive(self):
+        variant = ProductVariantFactory.build(price=Decimal('80.00'), sale_price=Decimal('-1.00'))
+        with pytest.raises(ValidationError) as exc:
+            variant.full_clean()
+        assert 'sale_price' in exc.value.message_dict
+
+    def test_variant_sale_price_must_be_less_than_variant_price(self):
+        variant = ProductVariantFactory.build(price=Decimal('80.00'), sale_price=Decimal('80.00'))
+        with pytest.raises(ValidationError) as exc:
+            variant.full_clean()
+        assert 'sale_price' in exc.value.message_dict
+
     def test_variant_effective_price_uses_variant_price(self):
         product = ProductFactory(base_price=Decimal('100.00'))
         variant = ProductVariantFactory(product=product, price=Decimal('80.00'), sale_price=None)
@@ -127,6 +196,19 @@ class TestProductVariantModel:
         product = ProductFactory(base_price=Decimal('100.00'), sale_price=None)
         variant = ProductVariantFactory(product=product, price=None, sale_price=None)
         assert variant.effective_price == Decimal('100.00')
+
+    def test_stock_quantity_controls_availability_semantics(self):
+        in_stock = ProductVariantFactory(stock_quantity=1, is_active=True)
+        out_of_stock = ProductVariantFactory(stock_quantity=0, is_active=True)
+        inactive = ProductVariantFactory(stock_quantity=10, is_active=False)
+
+        assert in_stock.is_active and in_stock.stock_quantity > 0
+        assert out_of_stock.stock_quantity == 0
+        assert inactive.is_active is False
+
+    def test_currency_consistency_uses_decimal_two_places(self):
+        variant = ProductVariantFactory(price=Decimal('99.99'), sale_price=Decimal('89.99'))
+        assert variant.effective_price == Decimal('89.99')
 
     def test_variant_str(self):
         product = ProductFactory(name='Shirt')

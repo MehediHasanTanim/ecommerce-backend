@@ -1,5 +1,4 @@
 import django_filters
-from django.db.models import Q
 from .models import Product
 
 
@@ -14,6 +13,7 @@ class ProductFilter(django_filters.FilterSet):
         price_max   – maximum base_price (inclusive)
         in_stock    – true/false, whether any variant has stock > 0
         is_featured – true/false
+        attribute    – variant attribute filter in key:value form, e.g. color:Red
         ordering    – newest | price_asc | price_desc | name_asc | name_desc
     """
 
@@ -45,6 +45,10 @@ class ProductFilter(django_filters.FilterSet):
         field_name='is_featured',
         label='Featured products only',
     )
+    attribute = django_filters.CharFilter(
+        method='filter_attribute',
+        label='Variant attribute in key:value form',
+    )
     ordering = django_filters.OrderingFilter(
         fields={
             'created_at': 'newest',
@@ -61,7 +65,7 @@ class ProductFilter(django_filters.FilterSet):
 
     class Meta:
         model = Product
-        fields = ['category', 'brand', 'price_min', 'price_max', 'in_stock', 'is_featured']
+        fields = ['category', 'brand', 'price_min', 'price_max', 'in_stock', 'is_featured', 'attribute']
 
     def filter_in_stock(self, queryset, name, value):
         """
@@ -82,6 +86,14 @@ class ProductFilter(django_filters.FilterSet):
             ).values_list('id', flat=True)
             return queryset.exclude(id__in=in_stock_ids)
         return queryset
+
+    def filter_attribute(self, queryset, name, value):
+        if not value or ':' not in value:
+            return queryset.none()
+        key, attribute_value = [part.strip() for part in value.split(':', 1)]
+        if not key or not attribute_value or not key.replace('_', '').isalnum():
+            return queryset.none()
+        return queryset.filter(**{f'variants__attributes__{key}__iexact': attribute_value}).distinct()
 
 
 SORT_MAP = {

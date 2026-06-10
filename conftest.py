@@ -6,6 +6,10 @@ from common.tests.factories import (
     UserFactory, AdminUserFactory, StaffUserFactory, AddressFactory,
     CategoryFactory, BrandFactory, ProductFactory, InactiveProductFactory,
     FeaturedProductFactory, ProductVariantFactory, ProductImageFactory,
+    CouponFactory, ExpiredCouponFactory, InactiveCouponFactory,
+    PercentageCouponFactory, FutureCouponFactory,
+    CartFactory, GuestCartFactory, CartItemFactory,
+    WishlistItemFactory,
 )
 
 @pytest.fixture(autouse=True)
@@ -106,3 +110,44 @@ def product_variant(db, product):
 @pytest.fixture
 def product_image(db, product):
     return ProductImageFactory(product=product, is_primary=True)
+
+
+# ── Cart & Coupon fixtures ────────────────────────────────────────────────────
+
+@pytest.fixture
+def coupon(db):
+    return CouponFactory()
+
+@pytest.fixture
+def expired_coupon(db):
+    return ExpiredCouponFactory()
+
+@pytest.fixture
+def inactive_coupon(db):
+    return InactiveCouponFactory()
+
+@pytest.fixture
+def percentage_coupon(db):
+    return PercentageCouponFactory()
+
+@pytest.fixture
+def future_coupon(db):
+    return FutureCouponFactory()
+
+@pytest.fixture
+def cart(db, user):
+    return CartFactory(user=user)
+
+@pytest.fixture
+def guest_cart(db):
+    return GuestCartFactory()
+
+@pytest.fixture
+def cart_item(db, cart, product_variant):
+    return CartItemFactory(cart=cart, product_variant=product_variant)
+
+# ── Wishlist fixtures ─────────────────────────────────────────────────────────
+
+@pytest.fixture
+def wishlist_item(db, user, product):
+    return WishlistItemFactory(user=user, product=product)

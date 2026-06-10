@@ -2,6 +2,8 @@ import factory
 from factory.django import DjangoModelFactory
 from apps.users.models import User, Address, UserVerificationToken
 from apps.catalog.models import Category, Brand, Product, ProductVariant, ProductImage
+from apps.cart.models import Cart, CartItem, Coupon
+from apps.wishlist.models import WishlistItem
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
@@ -140,3 +142,79 @@ class ProductImageFactory(DjangoModelFactory):
     alt_text = factory.Faker('sentence', nb_words=4)
     is_primary = False
     display_order = factory.Sequence(lambda n: n)
+
+
+# ── Cart & Coupon Factories ───────────────────────────────────────────────────
+
+class CouponFactory(DjangoModelFactory):
+    class Meta:
+        model = Coupon
+
+    code = factory.Sequence(lambda n: f'COUPON{n:05d}')
+    discount_type = Coupon.DiscountType.FIXED
+    discount_value = Decimal('10.00')
+    active = True
+    start_date = factory.LazyFunction(lambda: timezone.now() - timedelta(days=1))
+    end_date = factory.LazyFunction(lambda: timezone.now() + timedelta(days=30))
+    max_usage = 0
+    usage_count = 0
+    min_cart_amount = Decimal('0.00')
+
+
+class ExpiredCouponFactory(CouponFactory):
+    """Coupon whose end_date is in the past."""
+    end_date = factory.LazyFunction(lambda: timezone.now() - timedelta(days=1))
+
+
+class InactiveCouponFactory(CouponFactory):
+    """Coupon with active=False."""
+    active = False
+
+
+class PercentageCouponFactory(CouponFactory):
+    """Percentage-based coupon."""
+    discount_type = Coupon.DiscountType.PERCENTAGE
+    discount_value = Decimal('10.00')
+
+
+class FutureCouponFactory(CouponFactory):
+    """Coupon whose start_date is in the future (not yet valid)."""
+    start_date = factory.LazyFunction(lambda: timezone.now() + timedelta(days=5))
+
+
+class CartFactory(DjangoModelFactory):
+    class Meta:
+        model = Cart
+
+    user = factory.SubFactory(UserFactory)
+    guest_token = None
+    coupon = None
+
+
+class GuestCartFactory(DjangoModelFactory):
+    class Meta:
+        model = Cart
+
+    user = None
+    guest_token = factory.Faker('uuid4')
+    coupon = None
+
+
+class CartItemFactory(DjangoModelFactory):
+    class Meta:
+        model = CartItem
+
+    cart = factory.SubFactory(CartFactory)
+    product_variant = factory.SubFactory(ProductVariantFactory)
+    quantity = 1
+    unit_price = factory.LazyAttribute(lambda o: o.product_variant.effective_price)
+
+
+# ── Wishlist Factory ──────────────────────────────────────────────────────────
+
+class WishlistItemFactory(DjangoModelFactory):
+    class Meta:
+        model = WishlistItem
+
+    user = factory.SubFactory(UserFactory)
+    product = factory.SubFactory(ProductFactory)

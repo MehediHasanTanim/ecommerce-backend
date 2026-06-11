@@ -187,6 +187,10 @@ class ProductVariant(models.Model):
     )
     sale_price = models.DecimalField(max_digits=12, decimal_places=2, null=True, blank=True)
     stock_quantity = models.PositiveIntegerField(default=0)
+    reserved_stock = models.PositiveIntegerField(
+        default=0,
+        help_text='Quantity reserved for pending/confirmed orders.',
+    )
     is_active = models.BooleanField(default=True, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
@@ -202,6 +206,8 @@ class ProductVariant(models.Model):
         errors = {}
         if self.stock_quantity is not None and self.stock_quantity < 0:
             errors['stock_quantity'] = 'Stock quantity cannot be negative.'
+        if self.reserved_stock is not None and self.reserved_stock < 0:
+            errors['reserved_stock'] = 'Reserved stock cannot be negative.'
         if self.price is not None and self.price <= 0:
             errors['price'] = 'Variant price must be greater than zero.'
         if self.sale_price is not None:
@@ -224,6 +230,11 @@ class ProductVariant(models.Model):
         if self.price is not None:
             return self.price
         return self.product.effective_price
+
+    @property
+    def available_stock(self):
+        """Stock available for new orders (total - reserved)."""
+        return max(0, self.stock_quantity - self.reserved_stock)
 
     def __str__(self):
         return f"{self.product.name} – {self.variant_name}"

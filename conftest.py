@@ -10,6 +10,7 @@ from common.tests.factories import (
     PercentageCouponFactory, FutureCouponFactory,
     CartFactory, GuestCartFactory, CartItemFactory,
     WishlistItemFactory,
+    OrderFactory, OrderItemFactory, AuditLogFactory,
 )
 
 @pytest.fixture(autouse=True)

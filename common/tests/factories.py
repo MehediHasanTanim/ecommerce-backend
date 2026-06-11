@@ -1,9 +1,10 @@
 import factory
 from factory.django import DjangoModelFactory
-from apps.users.models import User, Address, UserVerificationToken
+from apps.users.models import User, Address, AuditLog, UserVerificationToken
 from apps.catalog.models import Category, Brand, Product, ProductVariant, ProductImage
 from apps.cart.models import Cart, CartItem, Coupon
 from apps.wishlist.models import WishlistItem
+from apps.orders.models import Order, OrderItem
 from django.utils import timezone
 from datetime import timedelta
 from decimal import Decimal
@@ -129,6 +130,7 @@ class ProductVariantFactory(DjangoModelFactory):
     price = None
     sale_price = None
     stock_quantity = 10
+    reserved_stock = 0
     is_active = True
 
 
@@ -218,3 +220,58 @@ class WishlistItemFactory(DjangoModelFactory):
 
     user = factory.SubFactory(UserFactory)
     product = factory.SubFactory(ProductFactory)
+
+
+# ── Order Factories ──────────────────────────────────────────────────────────
+
+class OrderFactory(DjangoModelFactory):
+    class Meta:
+        model = Order
+
+    user = factory.SubFactory(UserFactory)
+    order_number = factory.Sequence(lambda n: f'ORD-20260611-{n:06d}')
+    address_snapshot = factory.LazyFunction(lambda: {
+        'name': 'Test User',
+        'phone': '01710000000',
+        'city': 'Dhaka',
+        'country': 'Bangladesh',
+        'area': 'Gulshan',
+        'postal_code': '1212',
+        'address_line': '123 Test Street',
+        'type': 'shipping',
+    })
+    status = Order.Status.PENDING
+    payment_status = Order.PaymentStatus.PENDING
+    payment_method = 'cod'
+    subtotal = Decimal('200.00')
+    discount = Decimal('0.00')
+    shipping_fee = Decimal('60.00')
+    tax = Decimal('0.00')
+    grand_total = Decimal('260.00')
+
+
+class OrderItemFactory(DjangoModelFactory):
+    class Meta:
+        model = OrderItem
+
+    order = factory.SubFactory(OrderFactory)
+    product = factory.SubFactory(ProductFactory)
+    variant = factory.SubFactory(ProductVariantFactory)
+    sku = factory.Sequence(lambda n: f'ORD-SKU-{n:06d}')
+    product_name = factory.LazyAttribute(lambda o: o.product.name)
+    variant_name = factory.LazyAttribute(lambda o: o.variant.variant_name)
+    unit_price = Decimal('100.00')
+    quantity = 1
+
+
+# ── Audit Log Factory ────────────────────────────────────────────────────────
+
+class AuditLogFactory(DjangoModelFactory):
+    class Meta:
+        model = AuditLog
+
+    user = factory.SubFactory(UserFactory)
+    action = 'TEST_ACTION'
+    resource_type = 'Test'
+    resource_id = factory.Faker('uuid4')
+    metadata = factory.LazyFunction(dict)
